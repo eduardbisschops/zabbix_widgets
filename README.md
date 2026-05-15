@@ -1,5 +1,11 @@
 These widgets have been tested on Zabbix 7.0.24, 7.2.15 and 7.4.8.
 
+**Installation**
+
+1. Copy the `host_overview` and/or `banner` directory into the `modules` directory of your Zabbix frontend. This is usually located at `/usr/share/zabbix/modules/`.
+2. In Zabbix, go to **Administration → General → Modules** and enable the module.
+3. Add the widget to a dashboard.
+
 ## Host overview
 
 A compact, flexible host summary widget for Zabbix dashboards. It turns standard Linux and Windows template items into a clear at-a-glance overview with badges, status bars, grouped metrics, sparkline history, and quick links to Latest data. The configuration dialog also includes built-in preview and testing tools, so item mapping is easier to validate before you save.
