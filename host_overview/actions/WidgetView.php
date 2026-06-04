@@ -725,7 +725,7 @@ class WidgetView extends CControllerDashboardWidgetView
         $params = [
             'output' => ['eventid', 'severity'],
             'hostids' => (array) ($this->fields_values['hostid'] ?? []),
-            'recent' => true,
+            'recent' => false,
             'sortfield' => 'eventid',
             'sortorder' => 'DESC',
             'limit' => 1000,
