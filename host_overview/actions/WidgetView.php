@@ -722,16 +722,47 @@ class WidgetView extends CControllerDashboardWidgetView
             return $this->problems;
         }
 
+        $severity_map = [
+            5 => 'disaster',
+            4 => 'high',
+            3 => 'average',
+            2 => 'warning',
+            1 => 'information',
+            0 => 'not_classified',
+        ];
+        $counts = array_fill_keys(array_values($severity_map), 0);
+        $counts['total'] = 0;
+        $counts['max_severity'] = -1;
+
+        $hostids = (array) ($this->fields_values['hostid'] ?? []);
+
+        if ($hostids === []) {
+            $this->problems = $counts;
+
+            return $this->problems;
+        }
+
+        $triggers = API::Trigger()->get([
+            'output' => [],
+            'hostids' => $hostids,
+            'monitored' => true,
+            'skipDependent' => true,
+            'preservekeys' => true,
+        ]);
+
+        if (!$triggers) {
+            $this->problems = $counts;
+
+            return $this->problems;
+        }
+
         $params = [
-            'output' => ['eventid', 'objectid', 'severity'],
-            'source' => defined('EVENT_SOURCE_TRIGGERS') ? constant('EVENT_SOURCE_TRIGGERS') : 0,
-            'object' => defined('EVENT_OBJECT_TRIGGER') ? constant('EVENT_OBJECT_TRIGGER') : 0,
-            'hostids' => (array) ($this->fields_values['hostid'] ?? []),
-            'recent' => true,
+            'output' => ['eventid', 'severity'],
+            'source' => EVENT_SOURCE_TRIGGERS,
+            'object' => EVENT_OBJECT_TRIGGER,
+            'objectids' => array_keys($triggers),
+            'recent' => false,
             'symptom' => false,
-            'sortfield' => 'eventid',
-            'sortorder' => 'DESC',
-            'limit' => 1000,
         ];
 
         if ((int) ($this->fields_values['problems_hide_suppressed'] ?? 0) === 1) {
@@ -743,71 +774,21 @@ class WidgetView extends CControllerDashboardWidgetView
         }
 
         $events = API::Problem()->get($params);
-        $events = $this->filterProblemsByMonitoredTriggers($events);
-
-        $severity_map = [
-            5 => 'disaster',
-            4 => 'high',
-            3 => 'average',
-            2 => 'warning',
-            1 => 'information',
-            0 => 'not_classified',
-        ];
-        $counts = array_fill_keys(array_values($severity_map), 0);
-        $max_severity = -1;
 
         foreach ($events as $event) {
             $severity = (int) ($event['severity'] ?? 0);
             $key = $severity_map[$severity] ?? 'not_classified';
             $counts[$key]++;
+            $counts['total']++;
 
-            if ($severity > $max_severity) {
-                $max_severity = $severity;
+            if ($severity > $counts['max_severity']) {
+                $counts['max_severity'] = $severity;
             }
         }
 
-        $counts['total'] = count($events);
-        $counts['max_severity'] = $max_severity;
         $this->problems = $counts;
 
         return $this->problems;
-    }
-
-    private function filterProblemsByMonitoredTriggers(array $events): array
-    {
-        if ($events === []) {
-            return [];
-        }
-
-        $triggerids = [];
-
-        foreach ($events as $event) {
-            $triggerid = trim((string) ($event['objectid'] ?? ''));
-
-            if ($triggerid !== '') {
-                $triggerids[$triggerid] = true;
-            }
-        }
-
-        if ($triggerids === []) {
-            return [];
-        }
-
-        $triggers = API::Trigger()->get([
-            'output' => ['triggerid'],
-            'triggerids' => array_keys($triggerids),
-            'monitored' => true,
-            'skipDependent' => true,
-            'preservekeys' => true,
-        ]);
-
-        if (!$triggers) {
-            return [];
-        }
-
-        return array_values(array_filter($events, static function (array $event) use ($triggers): bool {
-            return array_key_exists((string) ($event['objectid'] ?? ''), $triggers);
-        }));
     }
 
     // =============================================================================
