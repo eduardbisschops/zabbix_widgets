@@ -723,9 +723,12 @@ class WidgetView extends CControllerDashboardWidgetView
         }
 
         $params = [
-            'output' => ['eventid', 'severity'],
+            'output' => ['eventid', 'objectid', 'severity'],
+            'source' => defined('EVENT_SOURCE_TRIGGERS') ? constant('EVENT_SOURCE_TRIGGERS') : 0,
+            'object' => defined('EVENT_OBJECT_TRIGGER') ? constant('EVENT_OBJECT_TRIGGER') : 0,
             'hostids' => (array) ($this->fields_values['hostid'] ?? []),
-            'recent' => false,
+            'recent' => true,
+            'symptom' => false,
             'sortfield' => 'eventid',
             'sortorder' => 'DESC',
             'limit' => 1000,
@@ -740,6 +743,8 @@ class WidgetView extends CControllerDashboardWidgetView
         }
 
         $events = API::Problem()->get($params);
+        $events = $this->filterProblemsByMonitoredTriggers($events);
+
         $severity_map = [
             5 => 'disaster',
             4 => 'high',
@@ -766,6 +771,43 @@ class WidgetView extends CControllerDashboardWidgetView
         $this->problems = $counts;
 
         return $this->problems;
+    }
+
+    private function filterProblemsByMonitoredTriggers(array $events): array
+    {
+        if ($events === []) {
+            return [];
+        }
+
+        $triggerids = [];
+
+        foreach ($events as $event) {
+            $triggerid = trim((string) ($event['objectid'] ?? ''));
+
+            if ($triggerid !== '') {
+                $triggerids[$triggerid] = true;
+            }
+        }
+
+        if ($triggerids === []) {
+            return [];
+        }
+
+        $triggers = API::Trigger()->get([
+            'output' => ['triggerid'],
+            'triggerids' => array_keys($triggerids),
+            'monitored' => true,
+            'skipDependent' => true,
+            'preservekeys' => true,
+        ]);
+
+        if (!$triggers) {
+            return [];
+        }
+
+        return array_values(array_filter($events, static function (array $event) use ($triggers): bool {
+            return array_key_exists((string) ($event['objectid'] ?? ''), $triggers);
+        }));
     }
 
     // =============================================================================
