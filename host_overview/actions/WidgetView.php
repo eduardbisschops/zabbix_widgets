@@ -722,13 +722,47 @@ class WidgetView extends CControllerDashboardWidgetView
             return $this->problems;
         }
 
+        $severity_map = [
+            5 => 'disaster',
+            4 => 'high',
+            3 => 'average',
+            2 => 'warning',
+            1 => 'information',
+            0 => 'not_classified',
+        ];
+        $counts = array_fill_keys(array_values($severity_map), 0);
+        $counts['total'] = 0;
+        $counts['max_severity'] = -1;
+
+        $hostids = (array) ($this->fields_values['hostid'] ?? []);
+
+        if ($hostids === []) {
+            $this->problems = $counts;
+
+            return $this->problems;
+        }
+
+        $triggers = API::Trigger()->get([
+            'output' => [],
+            'hostids' => $hostids,
+            'monitored' => true,
+            'skipDependent' => true,
+            'preservekeys' => true,
+        ]);
+
+        if (!$triggers) {
+            $this->problems = $counts;
+
+            return $this->problems;
+        }
+
         $params = [
             'output' => ['eventid', 'severity'],
-            'hostids' => (array) ($this->fields_values['hostid'] ?? []),
-            'recent' => true,
-            'sortfield' => 'eventid',
-            'sortorder' => 'DESC',
-            'limit' => 1000,
+            'source' => EVENT_SOURCE_TRIGGERS,
+            'object' => EVENT_OBJECT_TRIGGER,
+            'objectids' => array_keys($triggers),
+            'recent' => false,
+            'symptom' => false,
         ];
 
         if ((int) ($this->fields_values['problems_hide_suppressed'] ?? 0) === 1) {
@@ -740,29 +774,18 @@ class WidgetView extends CControllerDashboardWidgetView
         }
 
         $events = API::Problem()->get($params);
-        $severity_map = [
-            5 => 'disaster',
-            4 => 'high',
-            3 => 'average',
-            2 => 'warning',
-            1 => 'information',
-            0 => 'not_classified',
-        ];
-        $counts = array_fill_keys(array_values($severity_map), 0);
-        $max_severity = -1;
 
         foreach ($events as $event) {
             $severity = (int) ($event['severity'] ?? 0);
             $key = $severity_map[$severity] ?? 'not_classified';
             $counts[$key]++;
+            $counts['total']++;
 
-            if ($severity > $max_severity) {
-                $max_severity = $severity;
+            if ($severity > $counts['max_severity']) {
+                $counts['max_severity'] = $severity;
             }
         }
 
-        $counts['total'] = count($events);
-        $counts['max_severity'] = $max_severity;
         $this->problems = $counts;
 
         return $this->problems;
