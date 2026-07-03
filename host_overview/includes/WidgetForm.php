@@ -64,7 +64,7 @@ class WidgetForm extends CWidgetForm
     public const DEFAULT_ITEM_LOAD     = 'Load average (5m avg)';
     public const DEFAULT_ITEM_SWAP     = 'Free swap space in %';
 
-    public const DEFAULT_ITEM_DISK        = '*:: Disk utilization by idle time';
+    public const DEFAULT_ITEM_DISK        = '*Disk utilization';
     public const DEFAULT_ITEM_PARTITION   = 'FS [*]: Space: Used, in %';
     public const DEFAULT_ITEM_INTERFACE   = 'Interface *: Bits *';
 
